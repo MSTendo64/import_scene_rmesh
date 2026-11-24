@@ -13,8 +13,7 @@ A Blender add-on for importing SCP: Containment Breach `.rmesh` room meshes.
 
 The importer uses only Blender's Python API and the Python standard library. No
 third-party Python packages are required. In particular, the binary reader is
-implemented directly with `struct`, `io`, and `pathlib`; Kaitai Struct and
-`kaitaistruct` are not used.
+implemented directly with `struct`, `io`, and `pathlib`;
 
 ## Import options
 
