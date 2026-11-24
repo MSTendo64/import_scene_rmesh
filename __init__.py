@@ -25,9 +25,9 @@ else:
     from . import room_mesh
 
 
-def _new_empty(context, name, parent=None):
+def _new_empty(collection, name, parent=None):
     obj = bpy.data.objects.new(name, None)
-    context.collection.objects.link(obj)
+    collection.objects.link(obj)
     obj.parent = parent
     return obj
 
@@ -157,8 +157,12 @@ class ImportRMeshOperator(bpy.types.Operator, ImportHelper):
             f"{filepath.name}: {rmesh.mesh_count} submeshes, {rmesh.point_count} entities"
         )
 
-        root = _new_empty(context, filepath.stem)
-        mesh_parent = _new_empty(context, "meshes", root) if self.use_ents else root
+        # Keep every imported room fully isolated in its own Blender collection.
+        room_collection = bpy.data.collections.new(filepath.stem)
+        context.scene.collection.children.link(room_collection)
+
+        root = _new_empty(room_collection, filepath.stem)
+        mesh_parent = _new_empty(room_collection, "meshes", root) if self.use_ents else root
         materials = {}
 
         for submesh_index, submesh in enumerate(rmesh.submeshes):
@@ -207,7 +211,7 @@ class ImportRMeshOperator(bpy.types.Operator, ImportHelper):
 
             mesh.update()
             obj = bpy.data.objects.new(mesh.name, mesh)
-            context.collection.objects.link(obj)
+            room_collection.objects.link(obj)
             obj.parent = mesh_parent
 
             if self.use_imp_mats:
@@ -217,7 +221,7 @@ class ImportRMeshOperator(bpy.types.Operator, ImportHelper):
                 obj.data.materials.append(material)
 
         if self.use_ents:
-            entity_parent = _new_empty(context, "entities", root)
+            entity_parent = _new_empty(room_collection, "entities", root)
             for index, point in enumerate(rmesh.entities):
                 entity_type = point.entity_type.value
                 entity_data = point.entity
@@ -225,7 +229,7 @@ class ImportRMeshOperator(bpy.types.Operator, ImportHelper):
                 if entity_type == "model":
                     name += "_" + entity_data.model_name.value
 
-                entity_obj = _new_empty(context, name, entity_parent)
+                entity_obj = _new_empty(room_collection, name, entity_parent)
                 position = getattr(entity_data, "position", None)
                 if position is not None:
                     entity_obj.location = (
