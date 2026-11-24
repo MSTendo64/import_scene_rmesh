@@ -197,6 +197,8 @@ class _Reader:
         point_count = self.count("Entity", 1)
         entities = [self.entity() for _ in range(point_count)]
         eof = self.string()
+        if self.remaining:
+            raise RMeshFormatError(f"Unexpected {self.remaining} trailing byte(s) after RMesh terminator")
 
         return SimpleNamespace(
             room_mesh_type=SimpleNamespace(value=room_mesh_type),
