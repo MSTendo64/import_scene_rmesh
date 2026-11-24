@@ -84,6 +84,12 @@ class ImportRMeshOperator(bpy.types.Operator, ImportHelper):
     filter_glob: StringProperty(default="*.rmesh", options={'HIDDEN'})
     use_imp_mats: BoolProperty(name="Import Materials", default=True)
     use_ents: BoolProperty(name="Import Entities as empties", default=True)
+    import_scale: bpy.props.FloatProperty(
+        name="Import Scale",
+        description="Scale factor for SCP: Containment Breach world coordinates",
+        default=0.00625, min=0.000001, max=1.0,
+        precision=6,
+    )
 
     def execute(self, context):
         filepath = Path(self.filepath)
@@ -114,7 +120,7 @@ class ImportRMeshOperator(bpy.types.Operator, ImportHelper):
             try:
                 for vertex in submesh.vertices:
                     position = vertex.position
-                    bm.verts.new((position.x, position.z, position.y))
+                    bm.verts.new((position.x * self.import_scale, position.z * self.import_scale, position.y * self.import_scale))
                 bm.verts.ensure_lookup_table()
                 bm.verts.index_update()
 
@@ -164,8 +170,11 @@ class ImportRMeshOperator(bpy.types.Operator, ImportHelper):
                 entity_obj = _new_empty(context, name, entity_parent)
                 position = getattr(entity_data, "position", None)
                 if position is not None:
-                    entity_obj.location = (position.x, position.z, position.y)
+                    entity_obj.location = (position.x * self.import_scale, position.z * self.import_scale, position.y * self.import_scale)
 
+                if entity_type in {"light", "spotlight", "soundemitter"} and hasattr(entity_data, "range"):
+                    entity_obj["source_range"] = entity_data.range
+                    entity_obj["range"] = entity_data.range * self.import_scale
                 if entity_type == "model":
                     rotation = entity_data.rotation
                     scale = entity_data.scale
