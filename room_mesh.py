@@ -1,347 +1,231 @@
-# This is a generated file! Please edit source .ksy file and use kaitai-struct-compiler to rebuild
-
-import kaitaistruct
-from kaitaistruct import KaitaiStruct, KaitaiStream, BytesIO
-from enum import Enum
-
-
-if getattr(kaitaistruct, 'API_VERSION', (0, 9)) < (0, 9):
-    raise Exception("Incompatible Kaitai Struct Python API: 0.9 or later is required, but you have %s" % (kaitaistruct.__version__))
-
-class RoomMesh(KaitaiStruct):
-    """SCP Containment Breach room mesh format."""
-
-    class TextureType(Enum):
-        none = 0
-        opaque = 1
-        lightmap = 2
-        transparent = 3
-
-    class EntityType(Enum):
-        none = 0
-        opaque = 1
-        lightmap = 2
-        transparent = 3
-    def __init__(self, _io, _parent=None, _root=None):
-        self._io = _io
-        self._parent = _parent
-        self._root = _root if _root else self
-        self._read()
-
-    def _read(self):
-        self.room_mesh_type = RoomMesh.BlitzStr(self._io, self, self._root)
-        self.mesh_count = self._io.read_u4le()
-        self.submeshes = []
-        for i in range(self.mesh_count):
-            self.submeshes.append(RoomMesh.Submesh(self._io, self, self._root))
-
-        self.inv_mesh_count = self._io.read_u4le()
-        self.inv_submeshes = []
-        for i in range(self.inv_mesh_count):
-            self.inv_submeshes.append(RoomMesh.InvSubmesh(self._io, self, self._root))
-
-        if self.room_mesh_type.value == u"RoomMesh.HasTriggerBox":
-            self.triggerbox_count = self._io.read_u4le()
-
-        if self.room_mesh_type.value == u"RoomMesh.HasTriggerBox":
-            self.triggerboxes = []
-            for i in range(self.triggerbox_count):
-                self.triggerboxes.append(RoomMesh.Triggerbox(self._io, self, self._root))
-
-
-        self.point_count = self._io.read_u4le()
-        self.entities = []
-        for i in range(self.point_count):
-            self.entities.append(RoomMesh.PointEntity(self._io, self, self._root))
-
-        self.eof = RoomMesh.BlitzStr(self._io, self, self._root)
-
-    class Vertex(KaitaiStruct):
-        def __init__(self, _io, _parent=None, _root=None):
-            self._io = _io
-            self._parent = _parent
-            self._root = _root if _root else self
-            self._read()
-
-        def _read(self):
-            self.position = RoomMesh.V3(self._io, self, self._root)
-            self.uv1 = RoomMesh.V2(self._io, self, self._root)
-            self.uv2 = RoomMesh.V2(self._io, self, self._root)
-            self.color = RoomMesh.Color(self._io, self, self._root)
-
-
-    class PointEntity(KaitaiStruct):
-        def __init__(self, _io, _parent=None, _root=None):
-            self._io = _io
-            self._parent = _parent
-            self._root = _root if _root else self
-            self._read()
-
-        def _read(self):
-            self.entity_type = RoomMesh.BlitzStr(self._io, self, self._root)
-            _on = self.entity_type.value
-            if _on == u"model":
-                self.entity = RoomMesh.Model(self._io, self, self._root)
-            elif _on == u"light":
-                self.entity = RoomMesh.Light(self._io, self, self._root)
-            elif _on == u"soundemitter":
-                self.entity = RoomMesh.Soundemitter(self._io, self, self._root)
-            elif _on == u"screen":
-                self.entity = RoomMesh.Screen(self._io, self, self._root)
-            elif _on == u"waypoint":
-                self.entity = RoomMesh.Waypoint(self._io, self, self._root)
-            elif _on == u"playerstart":
-                self.entity = RoomMesh.Playerstart(self._io, self, self._root)
-            elif _on == u"spotlight":
-                self.entity = RoomMesh.Spotlight(self._io, self, self._root)
-
-
-    class Model(KaitaiStruct):
-        def __init__(self, _io, _parent=None, _root=None):
-            self._io = _io
-            self._parent = _parent
-            self._root = _root if _root else self
-            self._read()
-
-        def _read(self):
-            self.model_name = RoomMesh.BlitzStr(self._io, self, self._root)
-            self.position = RoomMesh.V3(self._io, self, self._root)
-            self.rotation = RoomMesh.V3(self._io, self, self._root)
-            self.scale = RoomMesh.V3(self._io, self, self._root)
-
-
-    class V2(KaitaiStruct):
-        def __init__(self, _io, _parent=None, _root=None):
-            self._io = _io
-            self._parent = _parent
-            self._root = _root if _root else self
-            self._read()
-
-        def _read(self):
-            self.x = self._io.read_f4le()
-            self.y = self._io.read_f4le()
-
-
-    class Playerstart(KaitaiStruct):
-        def __init__(self, _io, _parent=None, _root=None):
-            self._io = _io
-            self._parent = _parent
-            self._root = _root if _root else self
-            self._read()
-
-        def _read(self):
-            self.position = RoomMesh.V3(self._io, self, self._root)
-            self.angles = RoomMesh.BlitzStr(self._io, self, self._root)
-
-
-    class Color(KaitaiStruct):
-        def __init__(self, _io, _parent=None, _root=None):
-            self._io = _io
-            self._parent = _parent
-            self._root = _root if _root else self
-            self._read()
-
-        def _read(self):
-            self.r = self._io.read_u1()
-            self.g = self._io.read_u1()
-            self.b = self._io.read_u1()
-
-
-    class Waypoint(KaitaiStruct):
-        def __init__(self, _io, _parent=None, _root=None):
-            self._io = _io
-            self._parent = _parent
-            self._root = _root if _root else self
-            self._read()
-
-        def _read(self):
-            self.position = RoomMesh.V3(self._io, self, self._root)
-
-
-    class Spotlight(KaitaiStruct):
-        def __init__(self, _io, _parent=None, _root=None):
-            self._io = _io
-            self._parent = _parent
-            self._root = _root if _root else self
-            self._read()
-
-        def _read(self):
-            self.position = RoomMesh.V3(self._io, self, self._root)
-            self.range = self._io.read_f4le()
-            self.color = RoomMesh.BlitzStr(self._io, self, self._root)
-            self.intensity = self._io.read_f4le()
-            self.angles = RoomMesh.BlitzStr(self._io, self, self._root)
-            self.inner_cone_angle = self._io.read_s4le()
-            self.outter_cone_angle = self._io.read_s4le()
-
-
-    class Screen(KaitaiStruct):
-        def __init__(self, _io, _parent=None, _root=None):
-            self._io = _io
-            self._parent = _parent
-            self._root = _root if _root else self
-            self._read()
-
-        def _read(self):
-            self.position = RoomMesh.V3(self._io, self, self._root)
-            self.screen_texture = RoomMesh.BlitzStr(self._io, self, self._root)
-
-
-    class InvSubmesh(KaitaiStruct):
-        def __init__(self, _io, _parent=None, _root=None):
-            self._io = _io
-            self._parent = _parent
-            self._root = _root if _root else self
-            self._read()
-
-        def _read(self):
-            self.vertex_count = self._io.read_u4le()
-            self.vertices = []
-            for i in range(self.vertex_count):
-                self.vertices.append(RoomMesh.V3(self._io, self, self._root))
-
-            self.index_count = self._io.read_u4le()
-            self.indices = []
-            for i in range(self.index_count):
-                self.indices.append(RoomMesh.V3i(self._io, self, self._root))
-
-
-
-    class BlitzStr(KaitaiStruct):
-        def __init__(self, _io, _parent=None, _root=None):
-            self._io = _io
-            self._parent = _parent
-            self._root = _root if _root else self
-            self._read()
-
-        def _read(self):
-            self.len = self._io.read_u4le()
-            self.value = (self._io.read_bytes(self.len)).decode(u"UTF-8")
-
-
-    class V3i(KaitaiStruct):
-        def __init__(self, _io, _parent=None, _root=None):
-            self._io = _io
-            self._parent = _parent
-            self._root = _root if _root else self
-            self._read()
-
-        def _read(self):
-            self.x = self._io.read_u4le()
-            self.y = self._io.read_u4le()
-            self.z = self._io.read_u4le()
-
-
-    class Box(KaitaiStruct):
-        def __init__(self, _io, _parent=None, _root=None):
-            self._io = _io
-            self._parent = _parent
-            self._root = _root if _root else self
-            self._read()
-
-        def _read(self):
-            self.vertex_count = self._io.read_u4le()
-            self.vertices = []
-            for i in range(self.vertex_count):
-                self.vertices.append(RoomMesh.V3(self._io, self, self._root))
-
-            self.index_count = self._io.read_u4le()
-            self.indices = []
-            for i in range(self.index_count):
-                self.indices.append(RoomMesh.V3i(self._io, self, self._root))
-
-
-
-    class V3(KaitaiStruct):
-        def __init__(self, _io, _parent=None, _root=None):
-            self._io = _io
-            self._parent = _parent
-            self._root = _root if _root else self
-            self._read()
-
-        def _read(self):
-            self.x = self._io.read_f4le()
-            self.y = self._io.read_f4le()
-            self.z = self._io.read_f4le()
-
-
-    class Triggerbox(KaitaiStruct):
-        def __init__(self, _io, _parent=None, _root=None):
-            self._io = _io
-            self._parent = _parent
-            self._root = _root if _root else self
-            self._read()
-
-        def _read(self):
-            self.box_count = self._io.read_u4le()
-            self.boxes = []
-            for i in range(self.box_count):
-                self.boxes.append(RoomMesh.Box(self._io, self, self._root))
-
-            self.triggerbox_name = RoomMesh.BlitzStr(self._io, self, self._root)
-
-
-    class Light(KaitaiStruct):
-        def __init__(self, _io, _parent=None, _root=None):
-            self._io = _io
-            self._parent = _parent
-            self._root = _root if _root else self
-            self._read()
-
-        def _read(self):
-            self.position = RoomMesh.V3(self._io, self, self._root)
-            self.range = self._io.read_f4le()
-            self.color = RoomMesh.BlitzStr(self._io, self, self._root)
-            self.intensity = self._io.read_f4le()
-
-
-    class Texture(KaitaiStruct):
-        def __init__(self, _io, _parent=None, _root=None):
-            self._io = _io
-            self._parent = _parent
-            self._root = _root if _root else self
-            self._read()
-
-        def _read(self):
-            self.mat_type = KaitaiStream.resolve_enum(RoomMesh.TextureType, self._io.read_u1())
-            self.texture_name = RoomMesh.BlitzStr(self._io, self, self._root)
-
-
-    class Soundemitter(KaitaiStruct):
-        def __init__(self, _io, _parent=None, _root=None):
-            self._io = _io
-            self._parent = _parent
-            self._root = _root if _root else self
-            self._read()
-
-        def _read(self):
-            self.position = RoomMesh.V3(self._io, self, self._root)
-            self.sound_index = self._io.read_u4le()
-            self.range = self._io.read_f4le()
-
-
-    class Submesh(KaitaiStruct):
-        def __init__(self, _io, _parent=None, _root=None):
-            self._io = _io
-            self._parent = _parent
-            self._root = _root if _root else self
-            self._read()
-
-        def _read(self):
-            self.textures = []
-            for i in range(2):
-                self.textures.append(RoomMesh.Texture(self._io, self, self._root))
-
-            self.vertex_count = self._io.read_u4le()
-            self.vertices = []
-            for i in range(self.vertex_count):
-                self.vertices.append(RoomMesh.Vertex(self._io, self, self._root))
-
-            self.index_count = self._io.read_u4le()
-            self.indices = []
-            for i in range(self.index_count):
-                self.indices.append(RoomMesh.V3i(self._io, self, self._root))
-
-
-
-
+"""Pure-Python reader for SCP: Containment Breach .rmesh files.
+
+This module intentionally has no Kaitai or other third-party dependencies.
+The binary layout follows the original Kaitai-generated reader.
+"""
+from enum import IntEnum
+from pathlib import Path
+from types import SimpleNamespace
+import io
+import math
+import struct
+
+
+class RMeshFormatError(ValueError):
+    """Raised when an RMesh file is truncated or structurally invalid."""
+
+
+class TextureType(IntEnum):
+    none = 0
+    opaque = 1
+    lightmap = 2
+    transparent = 3
+
+
+class _Reader:
+    MAX_ITEMS = 2_000_000
+    MAX_STRING_BYTES = 16 * 1024 * 1024
+
+    def __init__(self, data):
+        self.stream = io.BytesIO(data)
+        self.size = len(data)
+
+    @property
+    def remaining(self):
+        return self.size - self.stream.tell()
+
+    def read(self, size):
+        if size < 0 or size > self.remaining:
+            raise RMeshFormatError(
+                f"Unexpected end of RMesh file at offset 0x{self.stream.tell():X}"
+            )
+        value = self.stream.read(size)
+        if len(value) != size:
+            raise RMeshFormatError("Unexpected end of RMesh file")
+        return value
+
+    def unpack(self, fmt):
+        size = struct.calcsize(fmt)
+        try:
+            return struct.unpack(fmt, self.read(size))
+        except struct.error as exc:
+            raise RMeshFormatError(str(exc)) from exc
+
+    def u8(self):
+        return self.unpack("<B")[0]
+
+    def u32(self):
+        return self.unpack("<I")[0]
+
+    def i32(self):
+        return self.unpack("<i")[0]
+
+    def f32(self):
+        value = self.unpack("<f")[0]
+        if not math.isfinite(value):
+            raise RMeshFormatError("RMesh contains a non-finite floating-point value")
+        return value
+
+    def count(self, label, minimum_item_size=1):
+        count = self.u32()
+        if count > self.MAX_ITEMS:
+            raise RMeshFormatError(f"{label} count is unreasonably large: {count}")
+        if minimum_item_size and count > self.remaining // minimum_item_size:
+            raise RMeshFormatError(
+                f"{label} count ({count}) exceeds the remaining file data"
+            )
+        return count
+
+    def string(self):
+        length = self.u32()
+        if length > self.MAX_STRING_BYTES:
+            raise RMeshFormatError(f"String is too large: {length} bytes")
+        try:
+            return self.read(length).decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise RMeshFormatError(f"Invalid UTF-8 string at offset {self.stream.tell() - length}") from exc
+
+    def v2(self):
+        return SimpleNamespace(x=self.f32(), y=self.f32())
+
+    def v3(self):
+        return SimpleNamespace(x=self.f32(), y=self.f32(), z=self.f32())
+
+    def v3i(self):
+        return SimpleNamespace(x=self.u32(), y=self.u32(), z=self.u32())
+
+    def color(self):
+        r, g, b = self.unpack("<BBB")
+        return SimpleNamespace(r=r, g=g, b=b)
+
+    def vertex(self):
+        return SimpleNamespace(
+            position=self.v3(), uv1=self.v2(), uv2=self.v2(), color=self.color()
+        )
+
+    def texture(self):
+        raw_type = self.u8()
+        try:
+            texture_type = TextureType(raw_type)
+        except ValueError:
+            texture_type = raw_type
+        return SimpleNamespace(mat_type=SimpleNamespace(value=texture_type),
+                               texture_name=SimpleNamespace(value=self.string()))
+
+    def submesh(self):
+        textures = [self.texture(), self.texture()]
+        vertex_count = self.count("Vertex", 31)
+        vertices = [self.vertex() for _ in range(vertex_count)]
+        index_count = self.count("Triangle", 12)
+        indices = [self.v3i() for _ in range(index_count)]
+        return SimpleNamespace(textures=textures, vertex_count=vertex_count,
+                               vertices=vertices, index_count=index_count,
+                               indices=indices)
+
+    def box(self):
+        vertex_count = self.count("Trigger box vertex", 12)
+        vertices = [self.v3() for _ in range(vertex_count)]
+        index_count = self.count("Trigger box triangle", 12)
+        indices = [self.v3i() for _ in range(index_count)]
+        return SimpleNamespace(vertex_count=vertex_count, vertices=vertices,
+                               index_count=index_count, indices=indices)
+
+    def triggerbox(self):
+        box_count = self.count("Trigger box", 8)
+        boxes = [self.box() for _ in range(box_count)]
+        return SimpleNamespace(box_count=box_count, boxes=boxes,
+                               triggerbox_name=SimpleNamespace(value=self.string()))
+
+    def entity(self):
+        entity_type = self.string()
+        entity = None
+        if entity_type == "model":
+            entity = SimpleNamespace(model_name=SimpleNamespace(value=self.string()),
+                                     position=self.v3(), rotation=self.v3(), scale=self.v3())
+        elif entity_type == "light":
+            entity = SimpleNamespace(position=self.v3(), range=self.f32(),
+                                     color=SimpleNamespace(value=self.string()),
+                                     intensity=self.f32())
+        elif entity_type == "soundemitter":
+            entity = SimpleNamespace(position=self.v3(), sound_index=self.u32(),
+                                     range=self.f32())
+        elif entity_type == "screen":
+            entity = SimpleNamespace(position=self.v3(),
+                                     screen_texture=SimpleNamespace(value=self.string()))
+        elif entity_type == "waypoint":
+            entity = SimpleNamespace(position=self.v3())
+        elif entity_type == "playerstart":
+            entity = SimpleNamespace(position=self.v3(),
+                                     angles=SimpleNamespace(value=self.string()))
+        elif entity_type == "spotlight":
+            entity = SimpleNamespace(position=self.v3(), range=self.f32(),
+                                     color=SimpleNamespace(value=self.string()),
+                                     intensity=self.f32(),
+                                     angles=SimpleNamespace(value=self.string()),
+                                     inner_cone_angle=self.i32(),
+                                     outter_cone_angle=self.i32())
+        else:
+            raise RMeshFormatError(
+                f"Unsupported entity type {entity_type!r}; cannot safely skip its payload"
+            )
+        return SimpleNamespace(entity_type=SimpleNamespace(value=entity_type),
+                               entity=entity)
+
+    def parse(self):
+        room_mesh_type = self.string()
+        mesh_count = self.count("Submesh", 1)
+        submeshes = [self.submesh() for _ in range(mesh_count)]
+
+        inv_mesh_count = self.count("Invisible submesh", 1)
+        inv_submeshes = []
+        for _ in range(inv_mesh_count):
+            vertex_count = self.count("Invisible mesh vertex", 12)
+            vertices = [self.v3() for _ in range(vertex_count)]
+            index_count = self.count("Invisible mesh triangle", 12)
+            indices = [self.v3i() for _ in range(index_count)]
+            inv_submeshes.append(SimpleNamespace(vertex_count=vertex_count,
+                                                  vertices=vertices,
+                                                  index_count=index_count,
+                                                  indices=indices))
+
+        triggerboxes = []
+        triggerbox_count = 0
+        if room_mesh_type == "RoomMesh.HasTriggerBox":
+            triggerbox_count = self.count("Trigger box group", 1)
+            triggerboxes = [self.triggerbox() for _ in range(triggerbox_count)]
+
+        point_count = self.count("Entity", 1)
+        entities = [self.entity() for _ in range(point_count)]
+        eof = self.string()
+        if self.remaining:
+            raise RMeshFormatError(f"Unexpected {self.remaining} trailing byte(s) after RMesh terminator")
+
+        return SimpleNamespace(
+            room_mesh_type=SimpleNamespace(value=room_mesh_type),
+            mesh_count=mesh_count, submeshes=submeshes,
+            inv_mesh_count=inv_mesh_count, inv_submeshes=inv_submeshes,
+            triggerbox_count=triggerbox_count, triggerboxes=triggerboxes,
+            point_count=point_count, entities=entities,
+            eof=SimpleNamespace(value=eof)
+        )
+
+
+class RoomMesh:
+    """Parsed SCP: Containment Breach room mesh."""
+
+    TextureType = TextureType
+
+    @classmethod
+    def from_bytes(cls, data):
+        if not isinstance(data, (bytes, bytearray, memoryview)):
+            raise TypeError("RMesh data must be bytes-like")
+        return _Reader(bytes(data)).parse()
+
+    @classmethod
+    def from_file(cls, filepath):
+        path = Path(filepath)
+        try:
+            data = path.read_bytes()
+        except OSError as exc:
+            raise RMeshFormatError(f"Cannot read RMesh file {path}: {exc}") from exc
+        return cls.from_bytes(data)

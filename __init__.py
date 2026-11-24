@@ -1,29 +1,78 @@
 bl_info = {
-	"name": "Rmesh Importer",
-	"description": "Imports SCP:CB rmesh files",
-	"author": "señorDane",
-	"version": (0,0,4),
-	"blender": (3,0,0),
-	"location": "File > Import > RMESH",
-	"category": "Import"
+    "name": "RMesh Importer",
+    "description": "Imports SCP: Containment Breach RMesh files",
+    "author": "señorDane, MSTendo64",
+    "version": (0, 1, 0),
+    "blender": (3, 0, 0),
+    "location": "File > Import > RMESH",
+    "category": "Import",
 }
 
-if "bpy" in locals():
-  import imp
-  imp.reload(room_mesh)
-  print("Reloaded multifiles")
-else:
-  from . import room_mesh
-  print("Imported multifiles")
-
 import bpy
-from bpy_extras.io_utils import ImportHelper
-import kaitaistruct
 import bmesh
-from pathlib import Path
-from bpy_extras import object_utils
 import mathutils
 import os
+from pathlib import Path
+from bpy.props import BoolProperty, StringProperty
+from bpy_extras.io_utils import ImportHelper
+from bpy_extras import object_utils
+
+if "room_mesh" in locals():
+    import importlib
+    importlib.reload(room_mesh)
+else:
+    from . import room_mesh
+
+
+def _new_empty(context, name, parent=None):
+    obj = bpy.data.objects.new(name, None)
+    context.collection.objects.link(obj)
+    obj.parent = parent
+    return obj
+
+
+def _material_for_texture(texture_name, texture_dir, materials, load_images, operator):
+    texture_path = Path(texture_name)
+    material_name = texture_path.stem or "RMesh_Material"
+
+    if material_name in materials:
+        return materials[material_name]
+
+    material = bpy.data.materials.new(name=material_name)
+    material.use_nodes = True
+    materials[material_name] = material
+
+    if not load_images:
+        return material
+
+    image_path = Path(texture_dir) / texture_path
+    if not image_path.is_file():
+        operator.report({'WARNING'}, f"Texture not found: {image_path}")
+        return material
+
+    try:
+        image = bpy.data.images.load(str(image_path), check_existing=True)
+    except (RuntimeError, OSError) as exc:
+        operator.report({'WARNING'}, f"Could not load texture {image_path}: {exc}")
+        return material
+
+    nodes = material.node_tree.nodes
+    principled = nodes.get("Principled BSDF")
+    if principled is None:
+        principled = nodes.new(type="ShaderNodeBsdfPrincipled")
+    output = nodes.get("Material Output")
+    if output is None:
+        output = nodes.new(type="ShaderNodeOutputMaterial")
+
+    links = material.node_tree.links
+    if not any(link.from_node == principled and link.to_node == output
+               for link in links):
+        links.new(principled.outputs["BSDF"], output.inputs["Surface"])
+
+    image_node = nodes.new(type="ShaderNodeTexImage")
+    image_node.image = image
+    links.new(image_node.outputs["Color"], principled.inputs["Base Color"])
+    return material
 
 
 class ImportRMeshOperator(bpy.types.Operator, ImportHelper):
@@ -31,132 +80,97 @@ class ImportRMeshOperator(bpy.types.Operator, ImportHelper):
     bl_label = "RMesh (.rmesh)"
     bl_options = {'UNDO'}
 
-    # Add import options as properties
-    #use_prevent_faces: bpy.props.BoolProperty(name="Prevent duplicated faces", default=True)
-    use_imp_mats: bpy.props.BoolProperty(name="Import Materials", default=True)
-    use_ents: bpy.props.BoolProperty(name="Import Entities as empties", default=True)
-    #use_option2: bpy.props.BoolProperty(name="Option 2", default=False)
-    #float_option: bpy.props.FloatProperty(name="Float Option", default=0.0, min=0.0, max=1.0)
-
-
     filename_ext = ".rmesh"
-    filter_glob: bpy.props.StringProperty(default="*.rmesh", options={'HIDDEN'})
+    filter_glob: StringProperty(default="*.rmesh", options={'HIDDEN'})
+    use_imp_mats: BoolProperty(name="Import Materials", default=True)
+    use_ents: BoolProperty(name="Import Entities as empties", default=True)
 
     def execute(self, context):
-        filepath = self.filepath
-        print("Importing RMESH from:", filepath)
+        filepath = Path(self.filepath)
+        try:
+            rmesh = room_mesh.RoomMesh.from_file(filepath)
+        except (room_mesh.RMeshFormatError, OSError, ValueError) as exc:
+            self.report({'ERROR'}, f"Could not import RMesh: {exc}")
+            return {'CANCELLED'}
 
-        rmesh = room_mesh.RoomMesh.from_file(filepath)
+        self.report(
+            {'INFO'},
+            f"RMesh: {rmesh.mesh_count} submeshes, {rmesh.point_count} entities"
+        )
 
-        print("rmeshtype:", rmesh.room_mesh_type.value)
-        print("submeshes:", rmesh.mesh_count)
-        print("entities:", rmesh.point_count)
+        root = _new_empty(context, filepath.stem)
+        mesh_parent = _new_empty(context, "meshes", root) if self.use_ents else root
+        materials = {}
 
-        mats = dict()
-        #Creating mats first
-        if (self.use_imp_mats):
-            for submesh in range(rmesh.mesh_count):
-                mat_name = rmesh.submeshes[submesh].textures[1].texture_name.value.split(".")[0]
-                mat_pat = os.path.join(Path(filepath).parent, rmesh.submeshes[submesh].textures[1].texture_name.value)
-
-                if mat_name not in mats:
-                    mat = bpy.data.materials.new(name=mat_name)
-                    # obj.data.materials.append(mat)
-                    mats[mat_name] = mat
-                    # Set the material to use the Principled BSDF shader
-                    mat.use_nodes = True
-                    nodes = mat.node_tree.nodes
-                    principled_bsdf = nodes.get("Principled BSDF")
-                    if principled_bsdf is None:
-                        principled_bsdf = nodes.new(type="ShaderNodeBsdfPrincipled")
-                    material_output = nodes.get("Material Output")
-                    if material_output is None:
-                        material_output = nodes.new(type="ShaderNodeOutputMaterial")
-                    links = mat.node_tree.links
-                    links.new(principled_bsdf.outputs["BSDF"], material_output.inputs["Surface"])
-
-                    print("Loading texture at path: " + mat_pat)
-                    image = bpy.data.images.load(mat_pat)
-                    texture = bpy.data.textures.new(name=mat_name, type='IMAGE')
-                    texture.image = image
-                    texture_node = nodes.new(type="ShaderNodeTexImage")
-                    texture_node.image = image
-                    links.new(texture_node.outputs["Color"], principled_bsdf.inputs["Base Color"])
-
-
-        obj_parent = object_utils.object_data_add(context, None, name=Path(filepath).stem)
-        mesh_parent = obj_parent
-        if(self.use_ents):
-            mesh_parent = object_utils.object_data_add(context, None, name="meshes")
-            mesh_parent.parent = obj_parent
-
-        for submesh in range(rmesh.mesh_count):
-            mat_name = rmesh.submeshes[submesh].textures[1].texture_name.value.split(".")[0]
-            mesh = bpy.data.meshes.new("sm" + str(submesh) + "_" + mat_name)
+        for submesh_index, submesh in enumerate(rmesh.submeshes):
+            # The second texture slot is the surface texture in the source format.
+            texture_name = submesh.textures[1].texture_name.value
+            material_name = Path(texture_name).stem or f"submesh_{submesh_index}"
+            mesh = bpy.data.meshes.new(f"sm{submesh_index}_{material_name}")
             bm = bmesh.new()
+            uv1 = bm.loops.layers.uv.new("uv1")
+            uv2 = bm.loops.layers.uv.new("uv2")
 
-            bm.loops.layers.uv.new("uv1")
-            bm.loops.layers.uv.new("uv2")
+            try:
+                for vertex in submesh.vertices:
+                    position = vertex.position
+                    bm.verts.new((position.x, position.z, position.y))
+                bm.verts.ensure_lookup_table()
+                bm.verts.index_update()
 
-            for i in range(rmesh.submeshes[submesh].vertex_count):
-                vert = rmesh.submeshes[submesh].vertices[i].position
-                bm.verts.new((vert.x,vert.z,vert.y))
+                for triangle_index, indices in enumerate(submesh.indices):
+                    triangle = (indices.z, indices.y, indices.x)
+                    if any(index >= len(bm.verts) for index in triangle):
+                        self.report(
+                            {'WARNING'},
+                            f"Submesh {submesh_index}: skipped out-of-range triangle {triangle_index}"
+                        )
+                        continue
+                    try:
+                        face = bm.faces.new([bm.verts[index] for index in triangle])
+                    except ValueError:
+                        # Duplicate/degenerate face; skip only this face.
+                        continue
 
-            bm.verts.ensure_lookup_table()
-            bm.verts.index_update()
+                    for loop in face.loops:
+                        vertex = submesh.vertices[loop.vert.index]
+                        loop[uv1].uv = (vertex.uv1.x, 1.0 - vertex.uv1.y)
+                        loop[uv2].uv = (vertex.uv2.x, 1.0 - vertex.uv2.y)
 
-            added_idxs = 0
+                bm.to_mesh(mesh)
+            finally:
+                bm.free()
 
-            for i in range(rmesh.submeshes[submesh].index_count):
-                idxs = rmesh.submeshes[submesh].indices[i]
-                # bm.faces.new([bm.verts[idxs.z],bm.verts[idxs.y],bm.verts[idxs.x]])
-                try:
-                    bm.faces.new([bm.verts[idxs.z],bm.verts[idxs.y],bm.verts[idxs.x]])
-                    added_idxs = added_idxs+1
-                except:
-                    print("Repeated face that would've crashed this import")
-                    print("submesh: ", submesh)
-                    print("submesh texture: ", rmesh.submeshes[submesh].textures[1].texture_name.value.split(".")[0])
-                    print("faces: ", rmesh.submeshes[submesh].index_count)
-                    print("f " + str(idxs.x)+"/"+str(idxs.y)+"/"+str(idxs.z))
-                
-            bm.faces.ensure_lookup_table()
-            bm.faces.index_update()
+            mesh.update()
+            obj = bpy.data.objects.new(mesh.name, mesh)
+            context.collection.objects.link(obj)
+            obj.parent = mesh_parent
 
-            uv_layer1 = bm.loops.layers.uv["uv1"]
-            uv_layer2 = bm.loops.layers.uv["uv2"]
+            if self.use_imp_mats:
+                material = _material_for_texture(
+                    texture_name, filepath.parent, materials, True, self
+                )
+                obj.data.materials.append(material)
 
-            for i in range(added_idxs):
-                for loop in bm.faces[i].loops:
-                    loop_uv = loop[uv_layer1]
-                    vert_idx = loop.vert.index
+        if self.use_ents:
+            entity_parent = _new_empty(context, "entities", root)
+            for index, point in enumerate(rmesh.entities):
+                entity_type = point.entity_type.value
+                entity_data = point.entity
+                name = f"{index}_{entity_type}"
+                if entity_type == "model":
+                    name += "_" + entity_data.model_name.value
 
-                    vertex = rmesh.submeshes[submesh].vertices[vert_idx]
+                entity_obj = _new_empty(context, name, entity_parent)
+                position = getattr(entity_data, "position", None)
+                if position is not None:
+                    entity_obj.location = (position.x, position.z, position.y)
 
-                    loop_uv.uv = mathutils.Vector((vertex.uv1.x, 1-vertex.uv1.y))
-
-                    loop_uv = loop[uv_layer2]
-                    loop_uv.uv = mathutils.Vector((vertex.uv2.x, 1-vertex.uv2.y))
-
-            bm.to_mesh(mesh)
-            mesh.update()        
-
-            new_object = object_utils.object_data_add(context, mesh)
-            new_object.parent = mesh_parent
-
-            if (self.use_imp_mats):
-                new_object.data.materials.append(mats[mat_name])
-
-        if(self.use_ents):
-            ent_parent = object_utils.object_data_add(context, None, name="entities")
-            ent_parent.parent = obj_parent
-            for i in range(rmesh.point_count):
-                ent_name = str(i) + "_" + rmesh.entities[i].entity_type.value
-                if(rmesh.entities[i].entity_type.value == u"model"):
-                    ent_name = ent_name + "_" + rmesh.entities[i].entity.model_name.value
-                ent = object_utils.object_data_add(context, None, name=ent_name)
-                ent.location = (rmesh.entities[i].entity.position.x, rmesh.entities[i].entity.position.z, rmesh.entities[i].entity.position.y)
-                ent.parent = ent_parent
+                if entity_type == "model":
+                    rotation = entity_data.rotation
+                    scale = entity_data.scale
+                    entity_obj.rotation_euler = (rotation.x, rotation.z, rotation.y)
+                    entity_obj.scale = (scale.x, scale.z, scale.y)
 
         return {'FINISHED'}
 
@@ -169,26 +183,27 @@ class ImportRMeshPanel(bpy.types.Panel):
     bl_category = 'Import'
 
     def draw(self, context):
-        layout = self.layout
-        layout.operator("import_scene.rmesh")
+        self.layout.operator(ImportRMeshOperator.bl_idname)
 
 
 def menu_func_import(self, context):
-    self.layout.operator(ImportRMeshOperator.bl_idname)
+    self.layout.operator(ImportRMeshOperator.bl_idname, text="RMesh (.rmesh)")
+
+
+_CLASSES = (ImportRMeshOperator, ImportRMeshPanel)
 
 
 def register():
-    bpy.utils.register_class(ImportRMeshOperator)
-    bpy.utils.register_class(ImportRMeshPanel)
+    for cls in _CLASSES:
+        bpy.utils.register_class(cls)
     bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
 
 
 def unregister():
-    bpy.utils.unregister_class(ImportRMeshOperator)
-    bpy.utils.unregister_class(ImportRMeshPanel)
     bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)
+    for cls in reversed(_CLASSES):
+        bpy.utils.unregister_class(cls)
 
 
 if __name__ == "__main__":
     register()
-
