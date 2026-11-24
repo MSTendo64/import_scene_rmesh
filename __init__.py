@@ -13,8 +13,9 @@ import bmesh
 import mathutils
 import os
 from pathlib import Path
-from bpy.props import BoolProperty, StringProperty
+from bpy.props import BoolProperty, CollectionProperty, StringProperty
 from bpy_extras.io_utils import ImportHelper
+from bpy.types import OperatorFileListElement
 from bpy_extras import object_utils
 
 if "room_mesh" in locals():
@@ -129,6 +130,12 @@ class ImportRMeshOperator(bpy.types.Operator, ImportHelper):
 
     filename_ext = ".rmesh"
     filter_glob: StringProperty(default="*.rmesh", options={'HIDDEN'})
+    files: CollectionProperty(
+        name="RMesh files",
+        type=OperatorFileListElement,
+        options={'HIDDEN', 'SKIP_SAVE'},
+    )
+    directory: StringProperty(subtype='DIR_PATH', options={'HIDDEN'})
     use_imp_mats: BoolProperty(name="Import Materials", default=True)
     use_ents: BoolProperty(name="Import Entities as empties", default=True)
     import_scale: bpy.props.FloatProperty(
@@ -138,17 +145,16 @@ class ImportRMeshOperator(bpy.types.Operator, ImportHelper):
         precision=6,
     )
 
-    def execute(self, context):
-        filepath = Path(self.filepath)
+    def _import_file(self, context, filepath):
         try:
             rmesh = room_mesh.RoomMesh.from_file(filepath)
         except (room_mesh.RMeshFormatError, OSError, ValueError) as exc:
-            self.report({'ERROR'}, f"Could not import RMesh: {exc}")
-            return {'CANCELLED'}
+            self.report({'WARNING'}, f"{filepath.name}: could not import: {exc}")
+            return False
 
         self.report(
             {'INFO'},
-            f"RMesh: {rmesh.mesh_count} submeshes, {rmesh.point_count} entities"
+            f"{filepath.name}: {rmesh.mesh_count} submeshes, {rmesh.point_count} entities"
         )
 
         root = _new_empty(context, filepath.stem)
@@ -167,7 +173,11 @@ class ImportRMeshOperator(bpy.types.Operator, ImportHelper):
             try:
                 for vertex in submesh.vertices:
                     position = vertex.position
-                    bm.verts.new((position.x * self.import_scale, position.z * self.import_scale, position.y * self.import_scale))
+                    bm.verts.new((
+                        position.x * self.import_scale,
+                        position.z * self.import_scale,
+                        position.y * self.import_scale,
+                    ))
                 bm.verts.ensure_lookup_table()
                 bm.verts.index_update()
 
@@ -176,7 +186,8 @@ class ImportRMeshOperator(bpy.types.Operator, ImportHelper):
                     if any(index >= len(bm.verts) for index in triangle):
                         self.report(
                             {'WARNING'},
-                            f"Submesh {submesh_index}: skipped out-of-range triangle {triangle_index}"
+                            f"{filepath.name}, submesh {submesh_index}: "
+                            f"skipped out-of-range triangle {triangle_index}"
                         )
                         continue
                     try:
@@ -217,7 +228,11 @@ class ImportRMeshOperator(bpy.types.Operator, ImportHelper):
                 entity_obj = _new_empty(context, name, entity_parent)
                 position = getattr(entity_data, "position", None)
                 if position is not None:
-                    entity_obj.location = (position.x * self.import_scale, position.z * self.import_scale, position.y * self.import_scale)
+                    entity_obj.location = (
+                        position.x * self.import_scale,
+                        position.z * self.import_scale,
+                        position.y * self.import_scale,
+                    )
 
                 if entity_type in {"light", "spotlight", "soundemitter"} and hasattr(entity_data, "range"):
                     entity_obj["source_range"] = entity_data.range
@@ -228,6 +243,42 @@ class ImportRMeshOperator(bpy.types.Operator, ImportHelper):
                     entity_obj.rotation_euler = (rotation.x, rotation.z, rotation.y)
                     entity_obj.scale = (scale.x, scale.z, scale.y)
 
+        return True
+
+    def execute(self, context):
+        directory = Path(bpy.path.abspath(self.directory)) if self.directory else None
+        selected_files = [directory / item.name for item in self.files] if directory else []
+
+        # Keep compatibility with direct operator calls and older Blender
+        # file-browser behavior where only filepath is populated.
+        if not selected_files and self.filepath:
+            selected_files = [Path(bpy.path.abspath(self.filepath))]
+
+        if not selected_files:
+            self.report({'ERROR'}, "No RMesh files selected")
+            return {'CANCELLED'}
+
+        imported = 0
+        failed = 0
+        for filepath in selected_files:
+            if filepath.suffix.lower() != ".rmesh":
+                self.report({'WARNING'}, f"Skipped non-RMesh file: {filepath.name}")
+                failed += 1
+                continue
+            if self._import_file(context, filepath):
+                imported += 1
+            else:
+                failed += 1
+
+        if imported == 0:
+            self.report({'ERROR'}, f"Could not import any of the {len(selected_files)} selected RMesh files")
+            return {'CANCELLED'}
+
+        self.report(
+            {'INFO'},
+            f"Imported {imported} RMesh file(s)"
+            + (f"; {failed} failed or skipped" if failed else "")
+        )
         return {'FINISHED'}
 
 
