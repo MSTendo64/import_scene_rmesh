@@ -31,6 +31,50 @@ def _new_empty(context, name, parent=None):
     return obj
 
 
+def _find_texture_file(texture_name, texture_dir):
+    """Resolve a texture path, including game-relative names beside the RMesh."""
+    texture_dir = Path(texture_dir)
+    raw_path = Path(texture_name)
+
+    candidates = []
+    if raw_path.is_absolute():
+        candidates.append(raw_path)
+    else:
+        candidates.append(texture_dir / raw_path)
+        # RMesh texture names may contain game-internal directories. If the
+        # texture was exported beside the room, try its basename as well.
+        if raw_path.name != str(raw_path):
+            candidates.append(texture_dir / raw_path.name)
+
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+
+    # Some RMesh texture references omit the image extension.
+    bases = []
+    for candidate in candidates:
+        bases.append(candidate)
+        if not candidate.suffix:
+            for extension in (".png", ".jpg", ".jpeg", ".tga", ".bmp", ".dds"):
+                bases.append(candidate.with_suffix(extension))
+
+    for candidate in bases:
+        if candidate.is_file():
+            return candidate
+
+    # Case-insensitive fallback for assets copied from case-sensitive game
+    # archives onto Windows or other filesystems.
+    wanted_names = {candidate.name.casefold() for candidate in bases}
+    try:
+        for entry in texture_dir.iterdir():
+            if entry.is_file() and entry.name.casefold() in wanted_names:
+                return entry
+    except OSError:
+        pass
+
+    return None
+
+
 def _material_for_texture(texture_name, texture_dir, materials, load_images, operator):
     texture_path = Path(texture_name)
     material_name = texture_path.stem or "RMesh_Material"
@@ -45,9 +89,12 @@ def _material_for_texture(texture_name, texture_dir, materials, load_images, ope
     if not load_images:
         return material
 
-    image_path = Path(texture_dir) / texture_path
-    if not image_path.is_file():
-        operator.report({'WARNING'}, f"Texture not found: {image_path}")
+    image_path = _find_texture_file(texture_name, texture_dir)
+    if image_path is None:
+        operator.report(
+            {'WARNING'},
+            f"Texture not found beside RMesh or at referenced path: {texture_name}"
+        )
         return material
 
     try:
