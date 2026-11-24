@@ -23,6 +23,11 @@ implemented directly with `struct`, `io`, and `pathlib`; Kaitai Struct and
   reported as warnings; geometry import continues.
 - **Import Entities as empties** creates an entity hierarchy and imports the
   supported point entities as Blender empties.
+- **Import Scale** converts the game's large world-coordinate units to Blender
+  units. The default `0.00625` matches the scale used by established SCP-CB
+  Blender tooling; use `0.00390625` for the documented in-game scale, or adjust
+  it to suit your scene. The scale is applied to mesh vertices and entity
+  positions (not model-local scale values).
 
 Mesh vertices are converted from the source coordinate order to Blender's
 coordinate order. Both UV sets (`uv1` and `uv2`) are preserved.
